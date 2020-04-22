@@ -1,0 +1,7 @@
+b execsnoop.go:721
+b execsnoop.go:780
+b execsnoop.go:798
+b execsnoop.go:858
+b output.go:49
+
+dis 1 2 4 5 
