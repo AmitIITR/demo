@@ -29,11 +29,8 @@ import (
 
 import "C"
 
+
 type EventType int32
-//aktiwari tracee.go line 19
-// taskComm is a `TASK_COMM_LEN` long string.
-// `TASK_COMM_LEN` is defined in the linux header linux/sched.h
-type taskComm [16]byte
 const (
 	eventArg EventType = iota
 	eventRet
@@ -61,46 +58,11 @@ const source string = `
 #include <linux/socket.h>
 #include <linux/version.h>
 
-
-#define MAXARG 20
-#define MAX_STRING_SIZE 4096                                // Choosing this value to be the same as PATH_MAX
 #define SUBMIT_BUFSIZE  (2 << 13)                           // Need to be power of 2
-#define SUBMIT_BUFSIZE_HALF   ((SUBMIT_BUFSIZE-1) >> 1)     // Bitmask for ebpf validator - this is why we need SUBMIT_BUFSIZE to be power of 2
-
-#define NONE_T        0UL
-#define INT_T         1UL
-#define UINT_T        2UL
-#define LONG_T        3UL
-#define ULONG_T       4UL
-#define OFF_T_T       5UL
-#define MODE_T_T      6UL
-#define DEV_T_T       7UL
-#define SIZE_T_T      8UL
-#define POINTER_T     9UL
-#define STR_T         10UL
-#define STR_ARR_T     11UL
-#define SOCKADDR_T    12UL
-#define OPEN_FLAGS_T  13UL
-#define EXEC_FLAGS_T  14UL
-#define SOCK_DOM_T    15UL
-#define SOCK_TYPE_T   16UL
-#define CAP_T         17UL
-#define SYSCALL_T     18UL
-#define PROT_FLAGS_T  19UL
-#define ACCESS_MODE_T 20UL
-#define PTRACE_REQ_T  21UL
-#define PRCTL_OPT_T   22UL
-#define R_PATH_T      23UL
-#define TYPE_MAX      255UL
-
-#define CONFIG_CONT_MODE    0
-#define CONFIG_SHOW_SYSCALL 1
-#define CONFIG_EXEC_ENV     2
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 #error Minimal required kernel version is 4.14
 #endif
-
 /*==================================== ENUMS =================================*/
 
 enum event_id {
@@ -446,21 +408,6 @@ enum event_id {
 };
 
 /*=============================== INTERNAL STRUCTS ===========================*/
-
-typedef struct context {
-    u64 ts;                     // Timestamp
-    u32 pid;                    // PID as in the userspace term
-    u32 tid;                    // TID as in the userspace term
-    u32 ppid;                   // Parent PID as in the userspace term
-    u32 uid;
-    u32 mnt_id;
-    u32 pid_id;
-    char comm[TASK_COMM_LEN];
-    char uts_name[TASK_COMM_LEN];
-    enum event_id eventid;
-    u8 argnum;
-    s64 retval;
-} context_t;
 
 typedef struct args {
     unsigned long args[6];
