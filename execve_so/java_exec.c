@@ -3,7 +3,7 @@
  * hooking inception java agent.
  *
  * Example:
- * origional command: java -javaagent:HelloWorldAgent-1.0-SNAPSHOT.jar -jar HelloWorld-all-1.0.jar
+ * origional command: java -jar HelloWorld-all-1.0.jar
  *
  * modified by command: java -javaagent:HelloWorldAgent-1.0-SNAPSHOT.jar -jar HelloWorld-all-1.0.jar
  *
