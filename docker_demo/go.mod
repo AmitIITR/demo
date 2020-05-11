@@ -3,6 +3,7 @@ module https: //github.com/AmitIITR/demo
 go 1.13
 
 require (
+	docker.io/go-docker v1.0.0
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20180827131323-0c5f8d2b9b23
 	github.com/docker/go-connections v0.4.0 // indirect

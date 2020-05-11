@@ -63,6 +63,40 @@ const source string = `
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 #error Minimal required kernel version is 4.14
 #endif
+/*
+
+//please refer https://github.com/iovisor/bcc/issues/691
+#define DECLARE_EQUAL_TO(s) static inline bool equal_to_##s(char *str) { \      
+     char comparand[sizeof(#s)]; \                                               
+     bpf_probe_read(&comparand, sizeof(comparand), str); \                       
+     char compare[] = #s; \                                                      
+     for (int i = 0; i < sizeof(comparand); ++i) \                               
+         if (compare[i] != comparand[i]) \                                       
+             return false; \                                                     
+     return true; \                                                              
+ } \                                                                             
+
+ #define IS_EQUAL_TO(str, s) equal_to_##s(str)                                   
+
+ DECLARE_EQUAL_TO(true)                                                          
+
+ int test_strings(struct pt_regs *ctx, char *str) {                              
+     bpf_trace_printk("String printed: %s, equal to 'true': %d\\n",              
+         str, IS_EQUAL_TO(str, true));                                           
+     return 0;                                                                   
+ }       
+*/
+
+static inline bool equal_to_ls(const char *str) {
+  char comparand[6];
+  bpf_probe_read(&comparand, sizeof(comparand), str);
+  char compare[] = "/bin/ls";
+  for (int i = 0; i < 6; ++i)
+    if (compare[i] != comparand[i])
+      return false;
+  return true;
+}
+
 /*==================================== ENUMS =================================*/
 
 enum event_id {
@@ -563,7 +597,7 @@ static int submit_arg(struct pt_regs *ctx, void *ptr, struct data_t *data)
 
 int syscall__execve(struct pt_regs *ctx,
     const char __user *filename,
-    const char __user *const __user *__argv,
+    const char __user * __user *__argv,
     const char __user *const __user *__envp)
 {
     // create data here and pass to submit_arg to save stack space (#555)
@@ -576,7 +610,7 @@ int syscall__execve(struct pt_regs *ctx,
     
    //aktiwari, look event_monitor_ebpf.c line 603 	
     data.amitid= get_task_ns_tgid(task); 
-    bpf_trace_printk("aktiwari the out of get_task_ns_tgid(task) is %d\n", data.amitid);
+    //bpf_trace_printk("aktiwari the out of get_task_ns_tgid(task) is %d\n", data.pid);
 
     u64 id = bpf_get_current_pid_tgid();
     data.amitid= id >> 32;
@@ -589,10 +623,13 @@ int syscall__execve(struct pt_regs *ctx,
     // See https://github.com/iovisor/bcc/issues/1883.
     data.ppid = task->real_parent->tgid;
 
+    //const char* lsComm = "/bin/ls";
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
+    bpf_trace_printk("aktiwari  the command is %s, size of data.comm is %d\n", data.comm, sizeof(data.comm));
     data.type = EVENT_ARG;
 
     __submit_arg(ctx, (void *)filename, &data);
+    bpf_trace_printk("aktiwari  the filename is %s\n", filename);
 
     // skip first arg, as we submitted filename
     #pragma unroll
@@ -629,6 +666,7 @@ int do_ret_sys_execve(struct pt_regs *ctx)
     data.ppid = task->real_parent->tgid;
 
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
+    bpf_trace_printk("aktiwari  the command is %s, size of data.comm is %d\n", data.comm, sizeof(data.comm));
     data.type = EVENT_RET;
     data.retval = PT_REGS_RC(ctx);
     events.perf_submit(ctx, &data, sizeof(data));
@@ -689,6 +727,12 @@ func getPpid(pid uint64) uint64 {
 
 func main() {
         docker_map = make(map[string]bool)	
+	container_list := getRunningContainers()
+	for _, s := range container_list{
+		docker_map[s] = true
+	}
+	
+	go printTop()
 	run()
 }
 
@@ -782,6 +826,7 @@ func run() {
 				}
 
 				comm := C.GoString((*C.char)(unsafe.Pointer(&event.Comm)))
+			        //fmt.Println("aktiwari 822 and comm is ",  comm);
 				if *filterComm != "" && !strings.Contains(comm, *filterComm) {
 					delete(args, event.Pid)
 					continue
@@ -789,11 +834,6 @@ func run() {
 
 				argv, ok := args[event.Pid]
 				if !ok {
-	
-					fmt.Println("aktiwari continuing form line 822 and recieved not ok, argv is empty sring and ok is false \n")
-					fmt.Println(argv)
-					fmt.Println( ok )
-					fmt.Println(  args)
 					continue
 				}
 
@@ -801,7 +841,7 @@ func run() {
 					delete(args, event.Pid)
 					continue
 				}
-				uns := fmt.Sprintf("%s", event.UtsName)	
+				uns := fmt.Sprintf("%s", event.UtsName[0:12])
 
 				p := eventPayload{
 					Pid:    event.Pid,
@@ -833,9 +873,10 @@ func run() {
 					p.Argv = strings.Join(argv, " ")
 				}
 				p.Argv = strings.TrimSpace(strings.Replace(p.Argv, "\n", "\\n", -1))
-				
 				if(p.Pid_NS==1){
 				     docker_map[p.UtsName] = true
+				     //DockerCopyFromHost("/home/ec2-user/aa.txt" ,"/opt/.", p.UtsName)
+				     DockerCopyFromHostByShell(p.UtsName)
  				}
 				_, keyFound := docker_map[p.UtsName]
 				if(keyFound){
