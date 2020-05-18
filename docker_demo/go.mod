@@ -8,6 +8,7 @@ require (
 	github.com/docker/docker v1.4.2-0.20180827131323-0c5f8d2b9b23
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/fatih/vim-go-tutorial v0.0.0-20181010233933-3f8bbd5f5e07 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/iovisor/gobpf v0.0.0-20191219090757-e72091e3c5e6
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect

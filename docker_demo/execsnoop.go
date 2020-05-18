@@ -29,15 +29,15 @@ import (
 
 import "C"
 
-
 type EventType int32
+
 const (
 	eventArg EventType = iota
 	eventRet
 )
 
-var docker_map map[string]bool;
-
+var docker_map map[string]bool
+var docker_map_running map[string]bool
 
 const source string = `
 #include <uapi/linux/ptrace.h>
@@ -676,30 +676,30 @@ int do_ret_sys_execve(struct pt_regs *ctx)
 `
 
 type execveEvent struct {
-	Pid    uint64
-	Ppid   uint64
-	Comm   [16]byte
-	Type   int32
-	Argv   [128]byte
-	RetVal int32
+	Pid     uint64
+	Ppid    uint64
+	Comm    [16]byte
+	Type    int32
+	Argv    [128]byte
+	RetVal  int32
 	UtsName [16]byte
-        Pid_NS int32
+	Pid_NS  int32
 }
 
 type eventPayload struct {
-	Time   string `json:"time,omitempty"`
-	Comm   string `json:"comm"`
-	Pid    uint64 `json:"pid"`
-	Ppid   string `json:"ppid"`
-	Argv   string `json:"argv"`
-	RetVal int32  `json:"retval"`
-	Pid_NS int32 `json:"pid"`
-	MntId   uint32 `json:"mnt_ns"`
-	UtsName string `json:"uts_name"`
-	Uid     uint32   `json:"uid"`
-	_       [3]byte  // padding for Argnum
-	Eventid int32    `json:"api"`
-	Argnum  uint8    `json:"arguments_count"`
+	Time    string  `json:"time,omitempty"`
+	Comm    string  `json:"comm"`
+	Pid     uint64  `json:"pid"`
+	Ppid    string  `json:"ppid"`
+	Argv    string  `json:"argv"`
+	RetVal  int32   `json:"retval"`
+	Pid_NS  int32   `json:"pid"`
+	MntId   uint32  `json:"mnt_ns"`
+	UtsName string  `json:"uts_name"`
+	Uid     uint32  `json:"uid"`
+	_       [3]byte // padding for Argnum
+	Eventid int32   `json:"api"`
+	Argnum  uint8   `json:"arguments_count"`
 }
 
 // getPpid is a fallback to read the parent PID from /proc.
@@ -726,14 +726,21 @@ func getPpid(pid uint64) uint64 {
 }
 
 func main() {
-        docker_map = make(map[string]bool)	
+	docker_map = make(map[string]bool)
+	docker_map_running = make(map[string]bool)
 	container_list := getRunningContainers()
-	for _, s := range container_list{
+	for _, s := range container_list {
 		docker_map[s] = true
+		docker_map_running[s] = true
+		remote_attach(s)
 	}
-	
+
 	go printTop()
 	run()
+}
+
+func isAlreadyRunning(cid string) bool {
+	return docker_map_running[cid]
 }
 
 func run() {
@@ -826,7 +833,7 @@ func run() {
 				}
 
 				comm := C.GoString((*C.char)(unsafe.Pointer(&event.Comm)))
-			        //fmt.Println("aktiwari 822 and comm is ",  comm);
+				//fmt.Println("aktiwari 822 and comm is ",  comm);
 				if *filterComm != "" && !strings.Contains(comm, *filterComm) {
 					delete(args, event.Pid)
 					continue
@@ -844,12 +851,12 @@ func run() {
 				uns := fmt.Sprintf("%s", event.UtsName[0:12])
 
 				p := eventPayload{
-					Pid:    event.Pid,
-					Pid_NS:    event.Pid_NS,
-					Ppid:   "?",
-					Comm:   comm,
+					Pid:     event.Pid,
+					Pid_NS:  event.Pid_NS,
+					Ppid:    "?",
+					Comm:    comm,
 					UtsName: uns,
-					RetVal: event.RetVal,
+					RetVal:  event.RetVal,
 				}
 
 				if event.Ppid == 0 {
@@ -873,15 +880,19 @@ func run() {
 					p.Argv = strings.Join(argv, " ")
 				}
 				p.Argv = strings.TrimSpace(strings.Replace(p.Argv, "\n", "\\n", -1))
-				if(p.Pid_NS==1){
-				     docker_map[p.UtsName] = true
-				     //DockerCopyFromHost("/home/ec2-user/aa.txt" ,"/opt/.", p.UtsName)
-				     DockerCopyFromHostByShell(p.UtsName)
- 				}
+				if p.Pid_NS == 1 {
+					docker_map[p.UtsName] = true
+				}
 				_, keyFound := docker_map[p.UtsName]
-				if(keyFound){
+				if keyFound {
 					out.PrintLine(p)
 				}
+
+				if (strings.Compare(p.Comm, "java") == 0) && isAlreadyRunning(p.UtsName) && (strings.Compare(argv[1], "-jar") == 0) {
+					remote_attach_java(int(p.Pid_NS), p.UtsName)
+					//fmt.Println(argv[1])
+				}
+
 				delete(args, event.Pid)
 			}
 		}
