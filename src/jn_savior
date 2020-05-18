@@ -4,3 +4,94 @@ https://tecadmin.net/install-go-on-centos/
 
 For installing docker-compose
 https://linuxize.com/post/how-to-install-and-use-docker-compose-on-centos-7/
+
+error
+dp
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+
+$ sudo service docker stop
+$ sudo mv /var/lib/docker /var/lib/docker.bak
+$ sudo service docker start
+
+
+
+https://kubernetes.io/blog/2017/12/using-ebpf-in-kubernetes/
+
+This is help for getting to all the important funtions
+
+Run()
+
+
+initBPF()
+
+
+for making build for debugging with gdb
+go build -gcflags "-N -l" main.go
+
+
+
+
+
+
+sysdig installation
+docker run -d --name sysdig-agent --restart always --privileged --net host --pid host -e ACCESS_KEY=6c68f367-98da-40c2-a1fa-282fec67c19f -e SECURE=true -e TAGS=appname:adc -v /var/run/docker.sock:/host/var/run/docker.sock -v /dev:/host/dev -v /proc:/host/proc:ro -v /boot:/host/boot:ro -v /lib/modules:/host/lib/modules:ro -v /usr:/host/usr:ro --shm-size=512m sysdig/agent
+
+
+### Lize-rice  --> https://blog.aquasec.com/ebpf-tracing-containers
+A container is usually started with its own process ID (PID) namespace. Inside that namespace, the first process looks as though it has the ID 1. Tracee monitors for new binaries being executed, checking the process ID from the perspective of the process’s PID namespace. Whenever it finds a process that appears to have an ID of 1, Tracee knows that it’s the first process within a new PID namespace, so it starts tracing. Any other process that shares the same PID namespace will also get traced. Tracee will catch child processes within the container, as well as other containers in the same Kubernetes pod which share the PID namespace.
+
+
+### Sysdig  --> https://sysdig.com/blog/sysdig-and-falco-now-powered-by-ebpf/
+1. Most of the Sysdig intelligence is then implemented in user space. 
+	Each system call goes through a state machine that attaches a context (e.g. process metadata, container and orchestrator metadata, file/connection metadata, ..) to each individual event. 
+	This context can then be used for filtering and scripting in a semantically rich way. 
+	For example, just by intercepting an isolated write(), Sysdig is able to tell 
+		- which file/network connection, process and Docker container that write() refers to (compare that to strace).
+2. A big advantage of eBPF is that, unlike a kernel module, it will only run code that has been deemed completely safe to run. 
+	Specifically, this means that it will never lead to a kernel crash or kernel instability. 
+	This is one of the biggest selling points for eBPF. 
+	It’s also something currently difficult to achieve with other technologies without giving up some serious flexibility.
+3. Container-specific data, such as the cgroups the process issuing the system call belongs to, as well as the namespaces that process lives in.
+
+
+As we’ll see in the next part of the series, some of this information is not trivial to get from eBPF code due to the restrictive nature of what an eBPF program can do.
+
+Once an eBPF program captures all the needed data for a specific system call, it uses a special native BPF function to push the data to a set of per-CPU ring buffers that the Sysdig user space application can read at a very high throughput. This is where the usage of eBPF in Sysdig differs from the typical paradigm of using eBPF maps to share “small data” produced in kernel space with user space. This places the load of heavy aggregation on the eBPF side.
+
+In the Sysdig architecture, eBPF maps are minimally used for sharing purposes with user space. All of the data flows through the scalable ring buffer, which has been tuned for our specific use case. This allows Sysdig to export a very high volume of data from kernel to user space with minimal overhead. We then are able to reconstruct the state of the system in the Sysdig process memory, which is what ultimately powers the powerful filtering and chisel machine.
+
+
+
+### Sysdig  --> https://sysdig.com/blog/introducing-container-observability-with-ebpf-and-sysdig/
+What can you expect? If you’re working with a container-based environments, regardless of the instrumentation model, 
+	with Sysdig you’ll gain deep visibility into your container and Kubernetes infrastructure. 
+	We know containers and orchestration can get complex, fast. 
+	We help take the sting out of performance monitoring, security, vulnerability management, troubleshooting, and forensics for modern environments. 
+	As I like to say, we can help you see more, solve faster, and save money (and perhaps sleep more soundly!).
+
+We’re looking forward to advancing along with the eBPF capabilities in every Linux release. 
+By providing the link to eBPF for observability, we’re able to help more enterprises successfully build and run applications on containers 
+	– and to respond quickly to any issues that pop up for fast resolution. 
+For a deep dive into the fascinating technology of eBPF and our work with it – click over to Gianluca’s blog – Sysdig and Falco now powered by eBPF – and have a read.
+
+
+### Why ebpf --> https://news.ycombinator.com/item?id=14726311
+
+eBPF provides a safe way to interact with the kernel due to not being turing complete and additional restrictions. Systemtap is another example of such language but compiles to kernel modules instead.
+This is quite important when you want to run this code in production. You don't want to accidently crash your kernel.
+
+(e)BPF has the following guarantees:
+* Strictly typed -- registers, and memory are type checked at compilation time. If you use something like Rust, you'd have to bring rustc into the kernel
+
+* Guaranteed to terminate -- you cannot jump backwards, and there is an upper bound on the instruction count
+
+* Bounded memory -- The registers, and accessible memory via maps are a fixed size. We don't have a stack per se.
+
+Compiling Rust to this is possible, but it'd require quite a bit of infrastructure in the kernel to verify that the code is safe, versus the simplicity of eBPF. 
+Early attempts at a general purpose in-kernel VM included passing an AST in, and then doing safety checking on the AST, but they proved too complicated to do safely.
+
+
+	* The idea with having eBPF in the kernel is that we can limit the amount of trust given to a particular user-space task.
+	* Accepting compiled stuff in the form of a kernel module requires root privileges and requires that the kernel essentially have complete trust in the code being loaded.
+	* Loading eBPF eliminates the need to trust the process/user doing the loading to that level.
+
