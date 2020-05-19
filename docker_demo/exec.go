@@ -40,7 +40,7 @@ func remote_attach_java(pid int, containerID string) {
 	}
 	//var container_list []string
 	//sudo docker exec -it 9ad6678b433b java -Dagent.home="/tmp/home/ec2-user/java_agent/java-agent-1.0.jar"  -jar /tmp/home/ec2-user/java_agent/remote-attach-1.0.jar 56
-	cmdArray := []string{"java", "-Dagent.home=/tmp/home/ec2-user/java_agent/java-agent-1.0.jar", "-jar", "/tmp/home/ec2-user/java_agent/remote-attach-1.0.jar", strconv.Itoa(pid)}
+	cmdArray := []string{"java", "-Xbootclasspath/a:/tmp/home/ec2-user/java_agent_3/tools.jar", "-Dagent.home=/tmp/home/ec2-user/java_agent_3/java-agent-1.0.jar", "-jar", "/tmp/home/ec2-user/java_agent_3/remote-attach-1.0.jar", strconv.Itoa(pid)}
 	//	for _, container := range containers {
 	//cIds = append (cIds, container.ID)
 
@@ -54,7 +54,7 @@ func remote_attach_java(pid int, containerID string) {
 		Tty:        false,
 		Privileged: true,
 		User:       "root",
-		WorkingDir: "/tmp/home/ec2-user/java_agent/",
+		WorkingDir: "/tmp/home/ec2-user/java_agent_3/",
 	}
 	response, err := cli.ContainerExecCreate(context.Background(), containerID, config)
 	if err != nil {
