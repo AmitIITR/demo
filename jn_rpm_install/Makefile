@@ -24,7 +24,6 @@ RPM_TARGET := x86_64
 BASENAME := beacon-$(PACKAGE_VERSION)-$(RPM_REVISION)
 RPM := $(BASENAME).$(RPM_TARGET).rpm
 SRPM := $(BASENAME).src.rpm
-COLLECTORSRPM := beacon-collectors-$(PACKAGE_VERSION)-$(RPM_REVISION).$(RPM_TARGET).rpm
 EOSRPM := beacon-eos-$(PACKAGE_VERSION)-$(RPM_REVISION).$(RPM_TARGET).rpm
 SWIX := $(BASENAME).swix
 
@@ -58,7 +57,7 @@ rpm:
 	    beacon.spec; \
         } >beacon-t.spec
 	rpmbuild --define "_topdir %(pwd)/" \
-          --define "_sourcedir %(pwd)/dist/" \
+	   --define "_sourcedir %(pwd)/dist/" \
           --define "_rpmdir %(pwd)" \
           --define "_srcrpmdir %{_topdir}" \
           -bb beacon-t.spec
