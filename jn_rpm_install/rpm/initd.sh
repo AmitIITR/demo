@@ -58,7 +58,7 @@ sanity_check() {
 
 start() {
   checkUser
-  isRunning 
+  #isRunning 
   echo -n $"Starting $prog: "
   sanity_check || return $?
   daemon --user=$RUN_AS_USER --pidfile=$PIDFILE $BEACON 
