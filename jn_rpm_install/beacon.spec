@@ -4,7 +4,6 @@
 %global inceptiondir /usr/local/inception
 %global inceptionlddir /usr/local/inception/ld
 %global beacon_rundir /etc/init.d/ 
-%global ld_conf_dir /etc/ld.so.conf.d/ 
 %global rootdir       %{_topdir}
 
 Name:		beacon		
@@ -46,9 +45,9 @@ mkdir -p %{buildroot}/%{inceptionlddir}
 %{__install} -m 0755 -D %{rootdir}/rpm/initd.sh %{buildroot}/%{beacon_rundir}/beacon
 
 # Copy inception ld_preload library 
-mkdir -p %{buildroot}/ld_conf_dir
-%{__install} -m 0755 -D %{rootdir}/ld_preload/libinceptionappagent.conf %{buildroot}/%{ld_conf_dir}/libinceptionappagent.conf
 %{__install} -m 0755 -D %{rootdir}/ld_preload/libinceptionappagentproc.so %{buildroot}/%{inceptionlddir}/libinceptionappagentproc.so
+%{__install} -m 0755 -D %{rootdir}/rpm/post_install.sh %{buildroot}/%{inceptionlddir}/post_install.sh
+%{__install} -m 0755 -D %{rootdir}/rpm/post_uninstall.sh %{buildroot}/%{inceptionlddir}/post_uninstall.sh
 
 
 # Install Base files
@@ -59,9 +58,72 @@ mkdir -p %{buildroot}/ld_conf_dir
 %dir %{inceptiondir}
 %{inceptiondir}/beacon
 %{inceptionlddir}/libinceptionappagentproc.so
+%{inceptionlddir}/post_install.sh
+%{inceptionlddir}/post_uninstall.sh
 %{beacon_rundir}/beacon
-%{ld_conf_dir}/libinceptionappagent.conf
 %doc
+
+
+%pre
+if [ "$1" = "2" ]; then
+    # stop previous version of beacon service before starting upgrade
+    service beacon stop
+fi
+
+
+%post
+if [ -e /usr/local/inception/ld/post_install.sh]; then
+  #run post_install.sh
+  /usr/local/inception/ld/post_install.sh
+fi
+
+BEACON_USER="beacon"
+BEACON_GROUP="beacon"
+
+if [ -z "$(getent group $BEACON_GROUP)" ]; then
+  groupadd --system $BEACON_GROUP
+else
+  echo "Group [$BEACON_GROUP] already exists"
+fi
+
+if [ -z "$(id $BEACON_USER)" ]; then
+  useradd --system --home-dir /usr/local/beacon --no-create-home \
+  -g $BEACON_GROUP --shell /sbin/nologin $BEACON_USER
+else
+  echo "User [$BEACON_USER] already exists"
+fi
+
+#chown -R $BEACON_USER.$BEACON_GROUP /usr/local/beacon
+#chown -R $BEACON_USER.$BEACON_GROUP /var/run/beacon
+#chown -R $BEACON_USER.$BEACON_GROUP /var/log/beacon
+
+chkconfig --add beacon
+
+%preun
+if [ "$1" = "0" ]; then
+    # stop service before starting the uninstall
+    service beacon stop
+    chkconfig --del beacon
+fi
+
+%postun
+# $1 --> if 0, then it is a deinstall
+# $1 --> if 1, then it is an upgrade
+if [ $1 -eq 0 ] ; then
+    # This is a removal, not an upgrade
+    #  $1 versions will remain after this uninstall
+
+    # Clean up collectors
+    rm -f /etc/init.d/beacon
+    rm -f /etc/beacon
+
+    userdel beacon
+fi
+if [ -e /usr/local/inception/ld/post_uninstall.sh]; then
+  #run post_uninstall.sh, to remove entry from /etc/ld.so.preload
+  /usr/local/inception/ld/post_uninstall.sh
+fi
+
 
 %changelog
 

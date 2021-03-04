@@ -25,8 +25,8 @@ BEACON=${BEACON-/usr/local/inception/beacon}
 PIDFILE=${PIDFILE-/var/run/inception/beacon.pid}
 LOGFILE=${LOGFILE-/var/log/inception/beacon.log}
 
-RUN_AS_USER=${RUN_AS_USER-root}
-RUN_AS_GROUP=${RUN_AS_GROUP-root}
+RUN_AS_USER=${RUN_AS_USER-beacon}
+RUN_AS_GROUP=${RUN_AS_GROUP-beacon}
 
 if [ -f /etc/sysconfig/$prog ]; then
   . /etc/sysconfig/$prog
@@ -57,7 +57,7 @@ sanity_check() {
 
 
 start() {
-  checkUser
+  #checkUser
   #isRunning 
   echo -n $"Starting $prog: "
   sanity_check || return $?
