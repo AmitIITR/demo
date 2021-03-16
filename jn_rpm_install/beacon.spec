@@ -54,6 +54,16 @@ mkdir -p %{buildroot}/%{inceptionlddir}
 %{__install} -m 0755 -D %{rootdir}/BUILD/beacon-@PACKAGE_VERSION@/beacon %{buildroot}/%{inceptiondir}/beacon
 
 
+
+# Install Base files
+mkdir -p %{buildroot}%{inceptiondir}/conf/
+%{__install} -m 0755 -D %{rootdir}/conf/* %{buildroot}%{inceptiondir}/conf/
+%{__install} -m 0755 -D %{rootdir}/beacon %{buildroot}%{inceptiondir}/beacon
+
+# Install Collectors
+#%{__install} -m 0755 -D %{srccollectors}/0/*.py %{buildroot}%{collectorsdir}/0/
+
+
 %files
 %dir %{inceptiondir}
 %{inceptiondir}/beacon
@@ -98,6 +108,54 @@ fi
 #chown -R $BEACON_USER.$BEACON_GROUP /var/log/beacon
 
 chkconfig --add beacon
+    # stop previous version of xcollector service before starting upgrade
+    service xcollector stop
+fi
+
+%post
+if [ ! -L "/etc/xcollector" ]
+then
+  ln -s %{tcollectordir}/conf /etc/xcollector
+fi
+if [ ! -L "%{tcollectordir}/collectors/0/grok_nginx.py" ]
+then
+  ln -s %{tcollectordir}/grok_scraper.py %{tcollectordir}/collectors/0/grok_nginx.py
+fi
+if [ ! -L "%{tcollectordir}/collectors/0/grok_tomcat.py" ]
+then
+  ln -s %{tcollectordir}/grok_scraper.py %{tcollectordir}/collectors/0/grok_tomcat.py
+fi
+if [ ! -d "/var/run/xcollector" ]
+then
+  mkdir -p "/var/run/xcollector"
+fi
+if [ ! -d "/var/log/xcollector" ]
+then
+  mkdir -p "/var/log/xcollector"
+fi
+
+XCOLLECTOR_USER="xcollector"
+XCOLLECTOR_GROUP="xcollector"
+
+if [ -z "$(getent group $XCOLLECTOR_GROUP)" ]; then
+  groupadd --system $XCOLLECTOR_GROUP
+else
+  echo "Group [$XCOLLECTOR_GROUP] already exists"
+fi
+
+if [ -z "$(id $XCOLLECTOR_USER)" ]; then
+  useradd --system --home-dir /usr/local/xcollector --no-create-home \
+  -g $XCOLLECTOR_GROUP --shell /sbin/nologin $XCOLLECTOR_USER
+else
+  echo "User [$XCOLLECTOR_USER] already exists"
+fi
+
+chown -R $XCOLLECTOR_USER.$XCOLLECTOR_GROUP /usr/local/xcollector
+chown -R $XCOLLECTOR_USER.$XCOLLECTOR_GROUP /var/run/xcollector
+chown -R $XCOLLECTOR_USER.$XCOLLECTOR_GROUP /var/log/xcollector
+
+chkconfig --add xcollector
+grep PASTE_ACCESS_TOKEN_HERE /etc/xcollector/xcollector.yml >/dev/null || service xcollector start
 
 %preun
 if [ "$1" = "0" ]; then
@@ -122,6 +180,10 @@ fi
 if [ -e /usr/local/inception/ld/post_uninstall.sh]; then
   #run post_uninstall.sh, to remove entry from /etc/ld.so.preload
   /usr/local/inception/ld/post_uninstall.sh
+    rm -f /etc/init.d/xcollector
+    rm -f /etc/xcollector
+
+    userdel xcollector
 fi
 
 
